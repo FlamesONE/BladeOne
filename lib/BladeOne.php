@@ -106,6 +106,10 @@ class BladeOne
      * </pre>
      */
     public $compileCallbacks = [];
+    /**
+     * @var callable It allows to parse template before compiling.
+     */
+    public $beforeCompileCallbacks = [];
     /** @var array All the registered extensions. */
     protected $extensions = [];
     /** @var array All the finished, captured sections. */
@@ -1241,13 +1245,19 @@ class BladeOne
         $compiled = $this->getCompiledFile($templateName);
         $template = $this->getTemplateFile($templateName);
         if (!$this->isCompiled) {
-            $contents = $this->compileString($this->getFile($template));
+            $file = $this->getFile($template);
+            $this->beforeCompileCallbacks($file, $template);
+
+            $contents = $this->compileString($file);
             $this->compileCallBacks($contents, $templateName);
             return $contents;
         }
         if ($forced || $this->isExpired($templateName)) {
             // compile the original file
-            $contents = $this->compileString($this->getFile($template));
+            $file = $this->getFile($template);
+            $this->beforeCompileCallbacks($file, $template);
+
+            $contents = $this->compileString($file);
             $this->compileCallBacks($contents, $templateName);
             $dir = \dirname($compiled);
             if (!\is_dir($dir)) {
@@ -1394,6 +1404,17 @@ class BladeOne
     {
         if (!empty($this->compileCallbacks)) {
             foreach ($this->compileCallbacks as $callback) {
+                if (is_callable($callback)) {
+                    $callback($contents, $templateName);
+                }
+            }
+        }
+    }
+
+    protected function beforeCompileCallBacks(&$contents, $templateName): void
+    {
+        if (!empty($this->beforeCompileCallbacks)) {
+            foreach ($this->beforeCompileCallbacks as $callback) {
                 if (is_callable($callback)) {
                     $callback($contents, $templateName);
                 }
